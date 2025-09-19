@@ -55,7 +55,7 @@ You need to have [Node.js](https://nodejs.org/) and `npm` installed on your mach
     ```
 2.  Navigate to the project directory:
     ```sh
-    cd subsight
+    cd Subsight-Tracker
     ```
 3.  Install NPM packages:
     ```sh
