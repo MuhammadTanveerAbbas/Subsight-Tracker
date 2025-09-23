@@ -34,22 +34,36 @@ interface ChartsGridProps {
   subscriptions: Subscription[];
 }
 
-// Pure calculation functions
+interface CategoryData {
+  name: string;
+  value: number;
+}
+
+interface TimelineData {
+  month: string;
+  total: number;
+}
+
+interface TrendData {
+  year: number;
+  cost: number;
+}
+
+// Pure functions for data processing
+const filterActiveSubscriptions = (subscriptions: Subscription[]): Subscription[] =>
+  subscriptions.filter((s) => s.activeStatus);
+
 const calculateAnnualCost = (subscription: Subscription): number => {
-  if (subscription.billingCycle === "monthly") {
-    return subscription.amount * 12;
-  }
-  if (subscription.billingCycle === "yearly") {
-    return subscription.amount;
-  }
+  if (subscription.billingCycle === "monthly") return subscription.amount * 12;
+  if (subscription.billingCycle === "yearly") return subscription.amount;
   return 0;
 };
 
-const buildCategoryData = (activeSubscriptions: Subscription[]) => {
+const processCategoryData = (subscriptions: Subscription[]): { data: CategoryData[]; total: number } => {
   const categoryTotals: Record<string, number> = {};
   let totalAnnualCost = 0;
 
-  activeSubscriptions.forEach((subscription) => {
+  subscriptions.forEach((subscription) => {
     const category = subscription.category || "Uncategorized";
     const annualCost = calculateAnnualCost(subscription);
     
@@ -57,21 +71,23 @@ const buildCategoryData = (activeSubscriptions: Subscription[]) => {
     totalAnnualCost += annualCost;
   });
 
-  const categoryData = Object.entries(categoryTotals)
+  const data = Object.entries(categoryTotals)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  return { categoryData, totalAnnualCost };
+  return { data, total: totalAnnualCost };
 };
 
-const buildTimelineData = (activeSubscriptions: Subscription[]) => {
+const generateMonthKeys = (): string[] =>
+  Array.from({ length: 12 }, (_, i) => format(new Date(0, i), "MMM"));
+
+const processTimelineData = (subscriptions: Subscription[]): TimelineData[] => {
   const monthlyTotals: Record<string, number> = {};
 
-  activeSubscriptions.forEach((subscription) => {
+  subscriptions.forEach((subscription) => {
     if (subscription.billingCycle === "monthly") {
-      for (let month = 0; month < 12; month++) {
-        const date = new Date(new Date().getFullYear(), month, 1);
-        const monthKey = format(date, "MMM");
+      for (let i = 0; i < 12; i++) {
+        const monthKey = format(new Date(new Date().getFullYear(), i, 1), "MMM");
         monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + subscription.amount;
       }
     } else if (subscription.billingCycle === "yearly") {
@@ -80,315 +96,219 @@ const buildTimelineData = (activeSubscriptions: Subscription[]) => {
     }
   });
 
-  const allMonths = Array.from({ length: 12 }, (_, index) =>
-    format(new Date(0, index), "MMM")
-  );
-
-  return allMonths.map((month) => ({
+  return generateMonthKeys().map((month) => ({
     month,
     total: monthlyTotals[month] || 0,
   }));
 };
 
-const buildTrendData = (activeSubscriptions: Subscription[]) => {
+const processTrendData = (subscriptions: Subscription[]): TrendData[] => {
   const currentYear = new Date().getFullYear();
-  const previousYear = currentYear - 1;
+  const lastYear = currentYear - 1;
+  const yearlyCosts = { [currentYear]: 0, [lastYear]: 0 };
 
-  const yearlyCosts = {
-    [currentYear]: 0,
-    [previousYear]: 0,
-  };
-
-  activeSubscriptions.forEach((subscription) => {
-    const subscriptionStartYear = new Date(subscription.startDate).getFullYear();
+  subscriptions.forEach((subscription) => {
+    const subscriptionYear = new Date(subscription.startDate).getFullYear();
     const annualCost = calculateAnnualCost(subscription);
 
-    if (subscriptionStartYear <= currentYear) {
+    if (subscriptionYear <= currentYear) {
       yearlyCosts[currentYear] += annualCost;
     }
-    if (subscriptionStartYear <= previousYear) {
-      yearlyCosts[previousYear] += annualCost;
+    if (subscriptionYear <= lastYear) {
+      yearlyCosts[lastYear] += annualCost;
     }
   });
 
   return [
-    { year: previousYear, cost: yearlyCosts[previousYear] },
+    { year: lastYear, cost: yearlyCosts[lastYear] },
     { year: currentYear, cost: yearlyCosts[currentYear] },
   ];
 };
 
-const createCategoryChartConfig = (categoryData: { name: string; value: number }[]): ChartConfig => {
-  return categoryData.reduce((config, entry, index) => {
+const createCategoryChartConfig = (categoryData: CategoryData[]): ChartConfig =>
+  categoryData.reduce((config, entry, index) => {
     config[entry.name] = {
       label: entry.name,
       color: `hsl(var(--chart-${(index % 5) + 1}))`,
     };
     return config;
   }, {} as ChartConfig);
-};
 
-const createCurrencyFormatter = (currency: string) => (value: number) =>
+const formatCurrency = (value: number, currency: string): string =>
   value.toLocaleString("en-US", {
     style: "currency",
     currency,
   });
 
-const createCompactCurrencyFormatter = (currency: string) => (value: number) =>
+const formatCurrencyCompact = (value: number, currency: string): string =>
   value.toLocaleString("en-US", {
     style: "currency",
     currency,
     notation: "compact",
   });
 
-const createPercentageFormatter = (total: number) => (value: number) =>
-  `${((value / total) * 100).toFixed(1)}%`;
+const formatCurrencyNoDecimals = (value: number, currency: string): string =>
+  value.toLocaleString("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+
+// Responsive styling configurations
+const getPieChartDimensions = (isMobile: boolean) => ({
+  containerClass: isMobile 
+    ? "mx-auto aspect-square h-[200px] w-full max-w-[200px]" 
+    : "mx-auto aspect-square h-[180px] w-full max-w-[180px] sm:h-[200px] sm:max-w-[200px]",
+  innerRadius: isMobile ? 40 : 60,
+});
+
+const getBarChartConfig = (isMobile: boolean) => ({
+  containerClass: isMobile 
+    ? "h-[200px] w-full" 
+    : "h-[220px] w-full sm:h-[250px]",
+  fontSize: isMobile ? "0.7rem" : "0.8rem",
+  labelFontSize: isMobile ? 9 : 11,
+  xAxisInterval: isMobile ? 1 : 0,
+});
+
+const getTrendChartConfig = (isMobile: boolean) => ({
+  containerClass: isMobile 
+    ? "h-[200px] w-full" 
+    : "h-[220px] w-full sm:h-[250px]",
+  fontSize: isMobile ? "0.7rem" : "0.85rem",
+  labelFontSize: isMobile ? 10 : 12,
+  margin: isMobile ? { left: -20, right: 15 } : { left: 0, right: 40 },
+});
 
 export function ChartsGrid({ subscriptions }: ChartsGridProps) {
-  const activeSubscriptions = useMemo(
-    () => subscriptions.filter((subscription) => subscription.activeStatus),
-    [subscriptions]
-  );
-  
+  const activeSubs = filterActiveSubscriptions(subscriptions);
   const currency = subscriptions[0]?.currency || "USD";
   const isMobile = useIsMobile();
 
   const { categoryData, totalAnnualCost } = useMemo(
-    () => buildCategoryData(activeSubscriptions),
-    [activeSubscriptions]
+    () => {
+      const { data, total } = processCategoryData(activeSubs);
+      return { categoryData: data, totalAnnualCost: total };
+    },
+    [activeSubs]
   );
 
-  const timelineData = useMemo(
-    () => buildTimelineData(activeSubscriptions),
-    [activeSubscriptions]
-  );
-
-  const trendData = useMemo(
-    () => buildTrendData(activeSubscriptions),
-    [activeSubscriptions]
-  );
+  const timelineData = useMemo(() => processTimelineData(activeSubs), [activeSubs]);
 
   const categoryChartConfig = useMemo(
     () => createCategoryChartConfig(categoryData),
     [categoryData]
   );
 
-  const formatCurrency = createCurrencyFormatter(currency);
-  const formatCompactCurrency = createCompactCurrencyFormatter(currency);
-  const formatPercentage = createPercentageFormatter(totalAnnualCost);
+  const trendData = useMemo(() => processTrendData(activeSubs), [activeSubs]);
 
-  // Responsive configuration
-  const pieChartSize = isMobile ? 160 : 200;
-  const pieInnerRadius = isMobile ? 45 : 60;
-  const barChartHeight = isMobile ? 200 : 250;
-  const fontSize = {
-    small: isMobile ? "0.65rem" : "0.75rem",
-    medium: isMobile ? "0.7rem" : "0.8rem",
-    large: isMobile ? "0.75rem" : "0.85rem",
-  };
+  const pieChartDimensions = getPieChartDimensions(isMobile);
+  const barChartConfig = getBarChartConfig(isMobile);
+  const trendChartConfig = getTrendChartConfig(isMobile);
 
   return (
-    <div className="w-full">
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="overview" className="text-xs sm:text-sm">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="trends" className="text-xs sm:text-sm">
-            Trends
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-            {/* Category Spending Chart */}
-            <Card className="w-full">
-              <CardHeader className="pb-2 sm:pb-6">
-                <CardTitle className="text-base sm:text-lg">
-                  Spending by Category
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Annual breakdown
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-center p-2 sm:p-6">
-                <ChartContainer
-                  config={categoryChartConfig}
-                  className={`mx-auto aspect-square h-[${pieChartSize}px] w-full max-w-[${pieChartSize}px]`}
-                >
-                  <PieChart>
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          hideLabel
-                          className="text-xs"
-                          formatter={(value, name) => [
-                            `${formatCurrency(Number(value))} (${formatPercentage(Number(value))})`,
-                            name,
-                          ]}
-                        />
-                      }
-                    />
-                    <Pie
-                      data={categoryData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={pieInnerRadius}
-                      strokeWidth={isMobile ? 3 : 5}
-                      labelLine={false}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell
-                          key={`category-${index}`}
-                          fill={categoryChartConfig[entry.name]?.color || "hsl(var(--muted))"}
-                        />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Monthly Spending Chart */}
-            <Card className="w-full">
-              <CardHeader className="pb-2 sm:pb-6">
-                <CardTitle className="text-base sm:text-lg">
-                  Monthly Spending
-                </CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  Projected spending for the current year
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-2 sm:p-6">
-                <ChartContainer
-                  config={{ total: { label: "Total" } }}
-                  className={`h-[${barChartHeight}px] w-full`}
-                >
-                  <BarChart 
-                    data={timelineData} 
-                    accessibilityLayer
-                    margin={{ 
-                      top: isMobile ? 10 : 20, 
-                      right: isMobile ? 10 : 30, 
-                      left: isMobile ? 10 : 20, 
-                      bottom: isMobile ? 5 : 10 
-                    }}
-                  >
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="month"
-                      tickLine={false}
-                      tickMargin={isMobile ? 5 : 10}
-                      axisLine={false}
-                      interval={isMobile ? 2 : 0}
-                      style={{ fontSize: fontSize.medium }}
-                      angle={isMobile ? -45 : 0}
-                      textAnchor={isMobile ? "end" : "middle"}
-                      height={isMobile ? 50 : 30}
-                    />
-                    <YAxis
-                      tickFormatter={formatCompactCurrency}
-                      style={{ fontSize: fontSize.small }}
-                      width={isMobile ? 40 : 60}
-                    />
-                    <ChartTooltip
-                      content={
-                        <ChartTooltipContent
-                          className="text-xs"
-                          formatter={(value) => formatCurrency(Number(value))}
-                        />
-                      }
-                    />
-                    <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4}>
-                      {!isMobile && (
-                        <LabelList
-                          dataKey="total"
-                          position="top"
-                          offset={4}
-                          className="fill-foreground"
-                          fontSize={9}
-                          formatter={(value: number) =>
-                            value > 0
-                              ? value.toLocaleString("en-US", {
-                                  style: "currency",
-                                  currency,
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
-                                })
-                              : ""
-                          }
-                        />
-                      )}
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="trends">
-          <Card className="w-full">
-            <CardHeader className="pb-2 sm:pb-6">
-              <CardTitle className="text-base sm:text-lg">
-                Year-over-Year Spending
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
-                Annual subscription costs comparison
-              </CardDescription>
+    <Tabs defaultValue="overview">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="trends">Trends</TabsTrigger>
+      </TabsList>
+      
+      <TabsContent value="overview">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className={isMobile ? "pb-3" : ""}>
+              <CardTitle className={isMobile ? "text-base" : ""}>Spending by Category</CardTitle>
+              <CardDescription className={isMobile ? "text-xs" : ""}>Annual breakdown</CardDescription>
             </CardHeader>
-            <CardContent className="p-2 sm:p-6">
+            <CardContent className={`flex items-center justify-center ${isMobile ? "pt-2" : ""}`}>
               <ChartContainer
-                config={{
-                  cost: { label: "Cost", color: "hsl(var(--chart-1))" },
-                }}
-                className={`h-[${barChartHeight}px] w-full`}
+                config={categoryChartConfig}
+                className={pieChartDimensions.containerClass}
               >
-                <BarChart
-                  data={trendData}
-                  layout="vertical"
-                  accessibilityLayer
-                  margin={{ 
-                    left: isMobile ? 10 : 20, 
-                    right: isMobile ? 30 : 50,
-                    top: 10,
-                    bottom: 10
-                  }}
-                >
-                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
-                  <YAxis
-                    dataKey="year"
-                    type="category"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    style={{ fontSize: fontSize.large }}
-                    width={isMobile ? 50 : 70}
-                  />
-                  <XAxis
-                    type="number"
-                    tickFormatter={formatCompactCurrency}
-                    style={{ fontSize: fontSize.small }}
-                  />
+                <PieChart>
                   <ChartTooltip
                     cursor={false}
                     content={
                       <ChartTooltipContent
-                        className="text-xs"
-                        formatter={(value) => formatCurrency(Number(value))}
+                        hideLabel
+                        formatter={(value, name) => [
+                          `${formatCurrency(value as number, currency)} (${(
+                            ((value as number) / totalAnnualCost) * 100
+                          ).toFixed(1)}%)`,
+                          name,
+                        ]}
                       />
                     }
                   />
-                  <Bar dataKey="cost" radius={5}>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={pieChartDimensions.innerRadius}
+                    strokeWidth={5}
+                    labelLine={false}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          categoryChartConfig[entry.name]?.color ||
+                          "hsl(var(--muted))"
+                        }
+                      />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className={isMobile ? "pb-3" : ""}>
+              <CardTitle className={isMobile ? "text-base" : ""}>Monthly Spending</CardTitle>
+              <CardDescription className={isMobile ? "text-xs" : ""}>
+                Projected spending for the current year
+              </CardDescription>
+            </CardHeader>
+            <CardContent className={isMobile ? "pt-2" : ""}>
+              <ChartContainer
+                config={{ total: { label: "Total" } }}
+                className={barChartConfig.containerClass}
+              >
+                <BarChart data={timelineData} accessibilityLayer>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    tickFormatter={(value) => value}
+                    interval={barChartConfig.xAxisInterval}
+                    style={{ fontSize: barChartConfig.fontSize }}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
+                    style={{ fontSize: barChartConfig.fontSize }}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value) => formatCurrency(value as number, currency)}
+                      />
+                    }
+                  />
+                  <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4}>
                     <LabelList
-                      position="right"
-                      offset={8}
+                      dataKey="total"
+                      position="top"
+                      offset={4}
                       className="fill-foreground"
-                      fontSize={isMobile ? 9 : 11}
+                      fontSize={barChartConfig.labelFontSize}
                       formatter={(value: number) =>
-                        isMobile 
-                          ? formatCompactCurrency(value)
-                          : formatCurrency(value)
+                        value > 0 && !isMobile
+                          ? formatCurrencyNoDecimals(value, currency)
+                          : ""
                       }
                     />
                   </Bar>
@@ -396,8 +316,66 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
               </ChartContainer>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="trends">
+        <Card>
+          <CardHeader className={isMobile ? "pb-3" : ""}>
+            <CardTitle className={isMobile ? "text-base" : ""}>Year-over-Year Spending</CardTitle>
+            <CardDescription className={isMobile ? "text-xs" : ""}>
+              Annual subscription costs comparison
+            </CardDescription>
+          </CardHeader>
+          <CardContent className={isMobile ? "pt-2" : ""}>
+            <ChartContainer
+              config={{
+                cost: { label: "Cost", color: "hsl(var(--chart-1))" },
+              }}
+              className={trendChartConfig.containerClass}
+            >
+              <BarChart
+                data={trendData}
+                layout="vertical"
+                accessibilityLayer
+                margin={trendChartConfig.margin}
+              >
+                <CartesianGrid horizontal={false} />
+                <YAxis
+                  dataKey="year"
+                  type="category"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  style={{ fontSize: trendChartConfig.fontSize }}
+                />
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => formatCurrencyCompact(value, currency)}
+                  style={{ fontSize: trendChartConfig.fontSize }}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => formatCurrency(value as number, currency)}
+                    />
+                  }
+                />
+                <Bar dataKey="cost" radius={5}>
+                  <LabelList
+                    position="right"
+                    offset={8}
+                    className="fill-foreground"
+                    fontSize={trendChartConfig.labelFontSize}
+                    formatter={(value: number) => formatCurrency(value, currency)}
+                  />
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 }
