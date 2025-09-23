@@ -59,14 +59,16 @@ const calculateAnnualCost = (subscription: Subscription): number => {
   return 0;
 };
 
-const processCategoryData = (subscriptions: Subscription[]): { data: CategoryData[]; total: number } => {
+const processCategoryData = (
+  subscriptions: Subscription[]
+): { data: CategoryData[]; total: number } => {
   const categoryTotals: Record<string, number> = {};
   let totalAnnualCost = 0;
 
   subscriptions.forEach((subscription) => {
     const category = subscription.category || "Uncategorized";
     const annualCost = calculateAnnualCost(subscription);
-    
+
     categoryTotals[category] = (categoryTotals[category] || 0) + annualCost;
     totalAnnualCost += annualCost;
   });
@@ -88,11 +90,13 @@ const processTimelineData = (subscriptions: Subscription[]): TimelineData[] => {
     if (subscription.billingCycle === "monthly") {
       for (let i = 0; i < 12; i++) {
         const monthKey = format(new Date(new Date().getFullYear(), i, 1), "MMM");
-        monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + subscription.amount;
+        monthlyTotals[monthKey] =
+          (monthlyTotals[monthKey] || 0) + subscription.amount;
       }
     } else if (subscription.billingCycle === "yearly") {
       const monthKey = format(new Date(subscription.startDate), "MMM");
-      monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + subscription.amount;
+      monthlyTotals[monthKey] =
+        (monthlyTotals[monthKey] || 0) + subscription.amount;
     }
   });
 
@@ -157,28 +161,28 @@ const formatCurrencyNoDecimals = (value: number, currency: string): string =>
 
 // Responsive styling configurations
 const getPieChartDimensions = (isMobile: boolean) => ({
-  containerClass: isMobile 
-    ? "mx-auto aspect-square h-[200px] w-full max-w-[200px]" 
+  containerClass: isMobile
+    ? "mx-auto aspect-square h-[240px] w-full max-w-[240px]" // bigger on small
     : "mx-auto aspect-square h-[180px] w-full max-w-[180px] sm:h-[200px] sm:max-w-[200px]",
-  innerRadius: isMobile ? 40 : 60,
+  innerRadius: isMobile ? 55 : 60,
 });
 
 const getBarChartConfig = (isMobile: boolean) => ({
-  containerClass: isMobile 
-    ? "h-[200px] w-full" 
+  containerClass: isMobile
+    ? "h-[240px] w-full" // taller for mobile
     : "h-[220px] w-full sm:h-[250px]",
-  fontSize: isMobile ? "0.7rem" : "0.8rem",
-  labelFontSize: isMobile ? 9 : 11,
-  xAxisInterval: isMobile ? 1 : 0,
+  fontSize: isMobile ? "0.75rem" : "0.8rem",
+  labelFontSize: isMobile ? 10 : 11,
+  xAxisInterval: isMobile ? 0 : 0, // show all months
 });
 
 const getTrendChartConfig = (isMobile: boolean) => ({
-  containerClass: isMobile 
-    ? "h-[200px] w-full" 
+  containerClass: isMobile
+    ? "h-[240px] w-full" // taller for mobile
     : "h-[220px] w-full sm:h-[250px]",
-  fontSize: isMobile ? "0.7rem" : "0.85rem",
-  labelFontSize: isMobile ? 10 : 12,
-  margin: isMobile ? { left: -20, right: 15 } : { left: 0, right: 40 },
+  fontSize: isMobile ? "0.75rem" : "0.85rem",
+  labelFontSize: isMobile ? 11 : 12,
+  margin: isMobile ? { left: -10, right: 20 } : { left: 0, right: 40 },
 });
 
 export function ChartsGrid({ subscriptions }: ChartsGridProps) {
@@ -186,15 +190,15 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
   const currency = subscriptions[0]?.currency || "USD";
   const isMobile = useIsMobile();
 
-  const { categoryData, totalAnnualCost } = useMemo(
-    () => {
-      const { data, total } = processCategoryData(activeSubs);
-      return { categoryData: data, totalAnnualCost: total };
-    },
+  const { categoryData, totalAnnualCost } = useMemo(() => {
+    const { data, total } = processCategoryData(activeSubs);
+    return { categoryData: data, totalAnnualCost: total };
+  }, [activeSubs]);
+
+  const timelineData = useMemo(
+    () => processTimelineData(activeSubs),
     [activeSubs]
   );
-
-  const timelineData = useMemo(() => processTimelineData(activeSubs), [activeSubs]);
 
   const categoryChartConfig = useMemo(
     () => createCategoryChartConfig(categoryData),
@@ -213,15 +217,27 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="trends">Trends</TabsTrigger>
       </TabsList>
-      
+
       <TabsContent value="overview">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div
+          className={`grid gap-4 ${
+            isMobile ? "grid-cols-1" : "md:grid-cols-2"
+          }`}
+        >
           <Card>
-            <CardHeader className={isMobile ? "pb-3" : ""}>
-              <CardTitle className={isMobile ? "text-base" : ""}>Spending by Category</CardTitle>
-              <CardDescription className={isMobile ? "text-xs" : ""}>Annual breakdown</CardDescription>
+            <CardHeader className={isMobile ? "pb-2" : ""}>
+              <CardTitle className={isMobile ? "text-base" : ""}>
+                Spending by Category
+              </CardTitle>
+              <CardDescription className={isMobile ? "text-xs" : ""}>
+                Annual breakdown
+              </CardDescription>
             </CardHeader>
-            <CardContent className={`flex items-center justify-center ${isMobile ? "pt-2" : ""}`}>
+            <CardContent
+              className={`flex items-center justify-center ${
+                isMobile ? "pt-1" : ""
+              }`}
+            >
               <ChartContainer
                 config={categoryChartConfig}
                 className={pieChartDimensions.containerClass}
@@ -234,7 +250,8 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                         hideLabel
                         formatter={(value, name) => [
                           `${formatCurrency(value as number, currency)} (${(
-                            ((value as number) / totalAnnualCost) * 100
+                            ((value as number) / totalAnnualCost) *
+                            100
                           ).toFixed(1)}%)`,
                           name,
                         ]}
@@ -265,13 +282,15 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
           </Card>
 
           <Card>
-            <CardHeader className={isMobile ? "pb-3" : ""}>
-              <CardTitle className={isMobile ? "text-base" : ""}>Monthly Spending</CardTitle>
+            <CardHeader className={isMobile ? "pb-2" : ""}>
+              <CardTitle className={isMobile ? "text-base" : ""}>
+                Monthly Spending
+              </CardTitle>
               <CardDescription className={isMobile ? "text-xs" : ""}>
                 Projected spending for the current year
               </CardDescription>
             </CardHeader>
-            <CardContent className={isMobile ? "pt-2" : ""}>
+            <CardContent className={isMobile ? "pt-1" : ""}>
               <ChartContainer
                 config={{ total: { label: "Total" } }}
                 className={barChartConfig.containerClass}
@@ -281,20 +300,23 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                   <XAxis
                     dataKey="month"
                     tickLine={false}
-                    tickMargin={10}
+                    tickMargin={8}
                     axisLine={false}
-                    tickFormatter={(value) => value}
                     interval={barChartConfig.xAxisInterval}
                     style={{ fontSize: barChartConfig.fontSize }}
                   />
                   <YAxis
-                    tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
+                    tickFormatter={(value) =>
+                      `$${Number(value).toLocaleString()}`
+                    }
                     style={{ fontSize: barChartConfig.fontSize }}
                   />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        formatter={(value) => formatCurrency(value as number, currency)}
+                        formatter={(value) =>
+                          formatCurrency(value as number, currency)
+                        }
                       />
                     }
                   />
@@ -321,13 +343,15 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
 
       <TabsContent value="trends">
         <Card>
-          <CardHeader className={isMobile ? "pb-3" : ""}>
-            <CardTitle className={isMobile ? "text-base" : ""}>Year-over-Year Spending</CardTitle>
+          <CardHeader className={isMobile ? "pb-2" : ""}>
+            <CardTitle className={isMobile ? "text-base" : ""}>
+              Year-over-Year Spending
+            </CardTitle>
             <CardDescription className={isMobile ? "text-xs" : ""}>
               Annual subscription costs comparison
             </CardDescription>
           </CardHeader>
-          <CardContent className={isMobile ? "pt-2" : ""}>
+          <CardContent className={isMobile ? "pt-1" : ""}>
             <ChartContainer
               config={{
                 cost: { label: "Cost", color: "hsl(var(--chart-1))" },
@@ -345,20 +369,24 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                   dataKey="year"
                   type="category"
                   tickLine={false}
-                  tickMargin={10}
+                  tickMargin={8}
                   axisLine={false}
                   style={{ fontSize: trendChartConfig.fontSize }}
                 />
                 <XAxis
                   type="number"
-                  tickFormatter={(value) => formatCurrencyCompact(value, currency)}
+                  tickFormatter={(value) =>
+                    formatCurrencyCompact(value, currency)
+                  }
                   style={{ fontSize: trendChartConfig.fontSize }}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={
                     <ChartTooltipContent
-                      formatter={(value) => formatCurrency(value as number, currency)}
+                      formatter={(value) =>
+                        formatCurrency(value as number, currency)
+                      }
                     />
                   }
                 />
@@ -368,7 +396,9 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                     offset={8}
                     className="fill-foreground"
                     fontSize={trendChartConfig.labelFontSize}
-                    formatter={(value: number) => formatCurrency(value, currency)}
+                    formatter={(value: number) =>
+                      formatCurrency(value, currency)
+                    }
                   />
                 </Bar>
               </BarChart>
