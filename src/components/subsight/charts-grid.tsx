@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -35,219 +34,402 @@ interface ChartsGridProps {
   subscriptions: Subscription[];
 }
 
+interface CategoryData {
+  name: string;
+  value: number;
+}
+
+interface TimelineData {
+  month: string;
+  total: number;
+}
+
+interface TrendData {
+  year: number;
+  cost: number;
+}
+
+// Pure function to calculate category spending
+const calculateCategorySpending = (subscriptions: Subscription[]): {
+  categoryData: CategoryData[];
+  totalAnnualCost: number;
+} => {
+  const categoryTotals: Record<string, number> = {};
+  let totalAnnual = 0;
+
+  subscriptions.forEach((subscription) => {
+    const category = subscription.category || "Uncategorized";
+    const annualCost = calculateAnnualCost(subscription);
+    
+    categoryTotals[category] = (categoryTotals[category] || 0) + annualCost;
+    totalAnnual += annualCost;
+  });
+
+  const categoryData = Object.entries(categoryTotals)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  return { categoryData, totalAnnualCost: totalAnnual };
+};
+
+// Pure function to calculate annual cost from subscription
+const calculateAnnualCost = (subscription: Subscription): number => {
+  switch (subscription.billingCycle) {
+    case "monthly":
+      return subscription.amount * 12;
+    case "yearly":
+      return subscription.amount;
+    default:
+      return 0;
+  }
+};
+
+// Pure function to generate timeline data
+const generateTimelineData = (subscriptions: Subscription[]): TimelineData[] => {
+  const monthlyTotals: Record<string, number> = {};
+
+  subscriptions.forEach((subscription) => {
+    if (subscription.billingCycle === "monthly") {
+      addMonthlySubscriptionToTimeline(subscription, monthlyTotals);
+    } else if (subscription.billingCycle === "yearly") {
+      addYearlySubscriptionToTimeline(subscription, monthlyTotals);
+    }
+  });
+
+  return generateAllMonthsData(monthlyTotals);
+};
+
+const addMonthlySubscriptionToTimeline = (
+  subscription: Subscription,
+  monthlyTotals: Record<string, number>
+): void => {
+  for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
+    const date = new Date(new Date().getFullYear(), monthIndex, 1);
+    const monthKey = format(date, "MMM");
+    monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + subscription.amount;
+  }
+};
+
+const addYearlySubscriptionToTimeline = (
+  subscription: Subscription,
+  monthlyTotals: Record<string, number>
+): void => {
+  const monthKey = format(new Date(subscription.startDate), "MMM");
+  monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + subscription.amount;
+};
+
+const generateAllMonthsData = (monthlyTotals: Record<string, number>): TimelineData[] => {
+  const allMonths = Array.from({ length: 12 }, (_, i) =>
+    format(new Date(0, i), "MMM")
+  );
+  
+  return allMonths.map((month) => ({
+    month,
+    total: monthlyTotals[month] || 0,
+  }));
+};
+
+// Pure function to generate trend data
+const generateTrendData = (subscriptions: Subscription[]): TrendData[] => {
+  const currentYear = new Date().getFullYear();
+  const lastYear = currentYear - 1;
+
+  const yearlyCosts = {
+    [currentYear]: 0,
+    [lastYear]: 0,
+  };
+
+  subscriptions.forEach((subscription) => {
+    const subscriptionYear = new Date(subscription.startDate).getFullYear();
+    const annualCost = calculateAnnualCost(subscription);
+
+    if (subscriptionYear <= currentYear) {
+      yearlyCosts[currentYear] += annualCost;
+    }
+    if (subscriptionYear <= lastYear) {
+      yearlyCosts[lastYear] += annualCost;
+    }
+  });
+
+  return [
+    { year: lastYear, cost: yearlyCosts[lastYear] },
+    { year: currentYear, cost: yearlyCosts[currentYear] },
+  ];
+};
+
+// Pure function to generate chart config
+const generateCategoryChartConfig = (categoryData: CategoryData[]): ChartConfig => {
+  return categoryData.reduce((config, entry, index) => {
+    config[entry.name] = {
+      label: entry.name,
+      color: `hsl(var(--chart-${(index % 5) + 1}))`,
+    };
+    return config;
+  }, {} as ChartConfig);
+};
+
+// Pure function to format currency
+const formatCurrency = (value: number, currency: string): string => {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: currency,
+  });
+};
+
+// Pure function to get responsive chart dimensions
+const getChartDimensions = (isMobile: boolean) => ({
+  pieChart: {
+    height: isMobile ? "160px" : "200px",
+    maxWidth: isMobile ? "160px" : "200px",
+    innerRadius: isMobile ? 45 : 60,
+  },
+  barChart: {
+    height: isMobile ? "200px" : "250px",
+  },
+  trendChart: {
+    height: isMobile ? "180px" : "230px",
+    margin: { left: isMobile ? -15 : 0, right: isMobile ? 15 : 40 },
+  },
+});
+
+// Pure function to get responsive font sizes
+const getResponsiveFontSizes = (isMobile: boolean) => ({
+  axis: isMobile ? "0.65rem" : "0.8rem",
+  label: isMobile ? 8 : 11,
+  trendLabel: isMobile ? 9 : 12,
+});
+
 export function ChartsGrid({ subscriptions }: ChartsGridProps) {
-  const activeSubs = subscriptions.filter((s) => s.activeStatus);
+  const activeSubscriptions = useMemo(
+    () => subscriptions.filter((subscription) => subscription.activeStatus),
+    [subscriptions]
+  );
+  
   const currency = subscriptions[0]?.currency || "USD";
   const isMobile = useIsMobile();
+  
+  const { categoryData, totalAnnualCost } = useMemo(
+    () => calculateCategorySpending(activeSubscriptions),
+    [activeSubscriptions]
+  );
 
-  const { categoryData, totalAnnualCost } = useMemo(() => {
-    const data: Record<string, number> = {};
-    let total = 0;
-    activeSubs.forEach((sub) => {
-      const category = sub.category || "Uncategorized";
-      const annualCost =
-        sub.billingCycle === "monthly"
-          ? sub.amount * 12
-          : sub.billingCycle === "yearly"
-          ? sub.amount
-          : 0;
-      if (!data[category]) {
-        data[category] = 0;
-      }
-      data[category] += annualCost;
-      total += annualCost;
-    });
+  const timelineData = useMemo(
+    () => generateTimelineData(activeSubscriptions),
+    [activeSubscriptions]
+  );
 
-    const chartData = Object.entries(data)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+  const categoryChartConfig = useMemo(
+    () => generateCategoryChartConfig(categoryData),
+    [categoryData]
+  );
 
-    return { categoryData: chartData, totalAnnualCost: total };
-  }, [activeSubs]);
+  const trendData = useMemo(
+    () => generateTrendData(activeSubscriptions),
+    [activeSubscriptions]
+  );
 
-  const timelineData = useMemo(() => {
-    const months: Record<string, number> = {};
-    activeSubs.forEach((sub) => {
-      if (sub.billingCycle === "monthly") {
-        for (let i = 0; i < 12; i++) {
-          const date = new Date(new Date().getFullYear(), i, 1);
-          const monthKey = format(date, "MMM");
-          if (!months[monthKey]) months[monthKey] = 0;
-          months[monthKey] += sub.amount;
-        }
-      } else if (sub.billingCycle === "yearly") {
-        const monthKey = format(new Date(sub.startDate), "MMM");
-        if (!months[monthKey]) months[monthKey] = 0;
-        months[monthKey] += sub.amount;
-      }
-    });
-
-    const allMonths = Array.from({ length: 12 }, (_, i) =>
-      format(new Date(0, i), "MMM")
-    );
-    return allMonths.map((month) => ({
-      month,
-      total: months[month] || 0,
-    }));
-  }, [activeSubs]);
-
-  const categoryChartConfig = useMemo(() => {
-    return categoryData.reduce((acc, entry, index) => {
-      acc[entry.name] = {
-        label: entry.name,
-        color: `hsl(var(--chart-${(index % 5) + 1}))`,
-      };
-      return acc;
-    }, {} as ChartConfig);
-  }, [categoryData]);
-
-  const trendData = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const lastYear = currentYear - 1;
-
-    const yearlyCosts: Record<number, number> = {
-      [currentYear]: 0,
-      [lastYear]: 0,
-    };
-
-    activeSubs.forEach((sub) => {
-      const subYear = new Date(sub.startDate).getFullYear();
-      const annualCost =
-        sub.billingCycle === "monthly"
-          ? sub.amount * 12
-          : sub.billingCycle === "yearly"
-          ? sub.amount
-          : 0;
-
-      if (subYear <= currentYear) {
-        yearlyCosts[currentYear] += annualCost;
-      }
-      if (subYear <= lastYear) {
-        yearlyCosts[lastYear] += annualCost;
-      }
-    });
-
-    return [
-      { year: lastYear, cost: yearlyCosts[lastYear] },
-      { year: currentYear, cost: yearlyCosts[currentYear] },
-    ];
-  }, [activeSubs]);
+  const chartDimensions = getChartDimensions(isMobile);
+  const fontSizes = getResponsiveFontSizes(isMobile);
 
   return (
-    <Tabs defaultValue="overview">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="trends">Trends</TabsTrigger>
-      </TabsList>
-      <TabsContent value="overview">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Spending by Category</CardTitle>
-              <CardDescription>Annual breakdown</CardDescription>
+    <div className="w-full space-y-4 px-2 sm:px-4 md:px-6">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 h-10 sm:h-11">
+          <TabsTrigger value="overview" className="text-sm sm:text-base">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="trends" className="text-sm sm:text-base">
+            Trends
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Category Spending Card */}
+            <Card className="w-full">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl">
+                  Spending by Category
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Annual breakdown
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center justify-center px-3 sm:px-6 pb-4 sm:pb-6">
+                <ChartContainer
+                  config={categoryChartConfig}
+                  className={`mx-auto aspect-square h-[${chartDimensions.pieChart.height}] w-full max-w-[${chartDimensions.pieChart.maxWidth}]`}
+                >
+                  <PieChart>
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          hideLabel
+                          className="min-w-[200px] text-sm"
+                          formatter={(value, name) => [
+                            `${formatCurrency(Number(value), currency)} (${(
+                              (Number(value) / totalAnnualCost) * 100
+                            ).toFixed(1)}%)`,
+                            name,
+                          ]}
+                        />
+                      }
+                    />
+                    <Pie
+                      data={categoryData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={chartDimensions.pieChart.innerRadius}
+                      strokeWidth={3}
+                      labelLine={false}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            categoryChartConfig[entry.name]?.color ||
+                            "hsl(var(--muted))"
+                          }
+                        />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Spending Card */}
+            <Card className="w-full">
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="text-lg sm:text-xl">
+                  Monthly Spending
+                </CardTitle>
+                <CardDescription className="text-sm">
+                  Projected spending for the current year
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
+                <ChartContainer
+                  config={{ total: { label: "Total" } }}
+                  className={`h-[${chartDimensions.barChart.height}] w-full`}
+                >
+                  <BarChart data={timelineData} accessibilityLayer>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={8}
+                      axisLine={false}
+                      interval={0}
+                      angle={isMobile ? -45 : 0}
+                      textAnchor={isMobile ? "end" : "middle"}
+                      height={isMobile ? 60 : 40}
+                      style={{ fontSize: fontSizes.axis }}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
+                      style={{ fontSize: fontSizes.axis }}
+                      width={isMobile ? 40 : 60}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          className="min-w-[150px]"
+                          formatter={(value) => formatCurrency(Number(value), currency)}
+                        />
+                      }
+                    />
+                    <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4}>
+                      {!isMobile && (
+                        <LabelList
+                          dataKey="total"
+                          position="top"
+                          offset={4}
+                          className="fill-foreground"
+                          fontSize={fontSizes.label}
+                          formatter={(value: number) =>
+                            value > 0
+                              ? value.toLocaleString("en-US", {
+                                  style: "currency",
+                                  currency: currency,
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })
+                              : ""
+                          }
+                        />
+                      )}
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="trends" className="mt-4">
+          <Card className="w-full">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">
+                Year-over-Year Spending
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Annual subscription costs comparison
+              </CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-center">
+            <CardContent className="px-2 sm:px-6 pb-4 sm:pb-6">
               <ChartContainer
-                config={categoryChartConfig}
-                className="mx-auto aspect-square h-[180px] w-full max-w-[180px] sm:h-[200px] sm:max-w-[200px]"
+                config={{
+                  cost: { label: "Cost", color: "hsl(var(--chart-1))" },
+                }}
+                className={`h-[${chartDimensions.trendChart.height}] w-full`}
               >
-                <PieChart>
+                <BarChart
+                  data={trendData}
+                  layout="vertical"
+                  accessibilityLayer
+                  margin={chartDimensions.trendChart.margin}
+                >
+                  <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                  <YAxis
+                    dataKey="year"
+                    type="category"
+                    tickLine={false}
+                    tickMargin={8}
+                    axisLine={false}
+                    width={isMobile ? 45 : 60}
+                    style={{ fontSize: fontSizes.axis }}
+                  />
+                  <XAxis
+                    type="number"
+                    tickFormatter={(value) =>
+                      value.toLocaleString("en-US", {
+                        style: "currency",
+                        currency: currency,
+                        notation: isMobile ? "compact" : "standard",
+                        maximumFractionDigits: 0,
+                      })
+                    }
+                    style={{ fontSize: fontSizes.axis }}
+                  />
                   <ChartTooltip
                     cursor={false}
                     content={
                       <ChartTooltipContent
-                        hideLabel
-                        formatter={(value, name) => [
-                          `${value.toLocaleString("en-US", {
-                            style: "currency",
-                            currency: currency,
-                          })} (${((value / totalAnnualCost) * 100).toFixed(
-                            1
-                          )}%)`,
-                          name,
-                        ]}
+                        className="min-w-[150px]"
+                        formatter={(value) => formatCurrency(Number(value), currency)}
                       />
                     }
                   />
-                  <Pie
-                    data={categoryData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={isMobile ? 50 : 60}
-                    strokeWidth={5}
-                    labelLine={false}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          categoryChartConfig[entry.name]?.color ||
-                          "hsl(var(--muted))"
-                        }
-                      />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Spending</CardTitle>
-              <CardDescription>
-                Projected spending for the current year
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer
-                config={{ total: { label: "Total" } }}
-                className="h-[220px] w-full sm:h-[250px]"
-              >
-                <BarChart data={timelineData} accessibilityLayer>
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    tickFormatter={(value) => value}
-                    interval={isMobile ? 1 : 0}
-                    style={{ fontSize: isMobile ? "0.7rem" : "0.8rem" }}
-                  />
-                  <YAxis
-                    tickFormatter={(value) =>
-                      `$${Number(value).toLocaleString()}`
-                    }
-                    style={{ fontSize: isMobile ? "0.7rem" : "0.8rem" }}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value) =>
-                          value.toLocaleString("en-US", {
-                            style: "currency",
-                            currency: currency,
-                          })
-                        }
-                      />
-                    }
-                  />
-                  <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4}>
+                  <Bar dataKey="cost" radius={5}>
                     <LabelList
-                      dataKey="total"
-                      position="top"
-                      offset={4}
+                      position="right"
+                      offset={6}
                       className="fill-foreground"
-                      fontSize={isMobile ? 9 : 11}
+                      fontSize={fontSizes.trendLabel}
                       formatter={(value: number) =>
-                        value > 0 && !isMobile
-                          ? value.toLocaleString("en-US", {
-                              style: "currency",
-                              currency: currency,
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            })
-                          : ""
+                        formatCurrency(value, currency)
                       }
                     />
                   </Bar>
@@ -255,81 +437,8 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
               </ChartContainer>
             </CardContent>
           </Card>
-        </div>
-      </TabsContent>
-      <TabsContent value="trends">
-        <Card>
-          <CardHeader>
-            <CardTitle>Year-over-Year Spending</CardTitle>
-            <CardDescription>
-              Annual subscription costs comparison
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                cost: { label: "Cost", color: "hsl(var(--chart-1))" },
-              }}
-              className="h-[220px] w-full sm:h-[250px]"
-            >
-              <BarChart
-                data={trendData}
-                layout="vertical"
-                accessibilityLayer
-                margin={{ left: isMobile ? -10 : 0, right: isMobile ? 20 : 40 }}
-              >
-                <CartesianGrid horizontal={false} />
-                <YAxis
-                  dataKey="year"
-                  type="category"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                  style={{ fontSize: isMobile ? "0.75rem" : "0.85rem" }}
-                />
-                <XAxis
-                  type="number"
-                  tickFormatter={(value) =>
-                    value.toLocaleString("en-US", {
-                      style: "currency",
-                      currency: currency,
-                      notation: "compact",
-                    })
-                  }
-                  style={{ fontSize: isMobile ? "0.75rem" : "0.85rem" }}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value) =>
-                        value.toLocaleString("en-US", {
-                          style: "currency",
-                          currency: currency,
-                        })
-                      }
-                    />
-                  }
-                />
-                <Bar dataKey="cost" radius={5}>
-                  <LabelList
-                    position="right"
-                    offset={8}
-                    className="fill-foreground"
-                    fontSize={isMobile ? 10 : 12}
-                    formatter={(value: number) =>
-                      value.toLocaleString("en-US", {
-                        style: "currency",
-                        currency: currency,
-                      })
-                    }
-                  />
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
