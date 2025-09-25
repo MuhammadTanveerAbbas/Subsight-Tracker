@@ -4,7 +4,6 @@
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
-  <img src="https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white" alt="Google Gemini" />
 </p>
 
 Subsight is a modern, privacy focused subscription tracking application designed to help you manage your recurring payments effortlessly. It's built to run entirely in your browser, meaning your financial data never leaves your device. No sign ups, no databases, just a simple and powerful tool to take control of your subscriptions.
