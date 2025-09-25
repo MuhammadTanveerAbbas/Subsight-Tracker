@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,7 +51,12 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getSubscriptionDetails } from "@/ai/flows/subscription-assistant";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../ui/accordion";
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -111,7 +115,7 @@ function SubscriptionForm({
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const data: SubscriptionFormData = {
       ...values,
-      icon: values.icon || 'default',
+      icon: values.icon || "default",
       startDate: values.startDate.toISOString(),
     };
     if (subscription) {
@@ -140,16 +144,27 @@ function SubscriptionForm({
       form.setValue("provider", details.provider, { shouldValidate: true });
       form.setValue("category", details.category, { shouldValidate: true });
       form.setValue("amount", details.amount, { shouldValidate: true });
-      form.setValue("currency", details.currency as any, { shouldValidate: true });
-      form.setValue("billingCycle", details.billingCycle as any, { shouldValidate: true });
-      form.setValue("startDate", new Date(details.startDate), { shouldValidate: true });
+      form.setValue("currency", details.currency as any, {
+        shouldValidate: true,
+      });
+      form.setValue("billingCycle", details.billingCycle as any, {
+        shouldValidate: true,
+      });
+      form.setValue("startDate", new Date(details.startDate), {
+        shouldValidate: true,
+      });
       form.setValue("autoRenew", details.autoRenew, { shouldValidate: true });
 
       const categoryLower = details.category.toLowerCase();
-      const matchedIcon = Object.keys(CATEGORY_ICONS).find(key => categoryLower.includes(key));
+      const matchedIcon = Object.keys(CATEGORY_ICONS).find((key) =>
+        categoryLower.includes(key)
+      );
       form.setValue("icon", matchedIcon || "default", { shouldValidate: true });
 
-      toast({ title: "AI Assistant", description: "Fields have been pre-filled." });
+      toast({
+        title: "AI Assistant",
+        description: "Fields have been pre-filled.",
+      });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -163,86 +178,130 @@ function SubscriptionForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subscription Name</FormLabel>
-                <div className="flex gap-2">
-                  <FormControl>
-                    <Input placeholder="e.g. Netflix" {...field} />
-                  </FormControl>
-                  <Button type="button" variant="outline" size="icon" onClick={handleAiFill} disabled={isAiLoading}>
-                    {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <Sparkles className="h-4 w-4" />}
-                    <span className="sr-only">AI Fill</span>
-                  </Button>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-3 sm:space-y-4"
+      >
+        {/* Subscription Name with AI Fill */}
         <FormField
           control={form.control}
-          name="icon"
+          name="name"
           render={({ field }) => (
-            <FormItem className="space-y-2">
-              <FormLabel>Icon</FormLabel>
+            <FormItem>
+              <FormLabel className="text-sm">Subscription Name</FormLabel>
+              <div className="flex gap-2">
                 <FormControl>
-                  <RadioGroup
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    className="w-full"
-                  >
-                  <Accordion type="single" collapsible defaultValue={Object.keys(ICON_CATEGORIES).find(cat => Object.keys(ICON_CATEGORIES[cat]).includes(field.value || 'default'))}>
-                    {Object.entries(ICON_CATEGORIES).map(([category, icons]) => (
-                      <AccordionItem value={category} key={category}>
-                        <AccordionTrigger>{category}</AccordionTrigger>
-                        <AccordionContent>
-                            <div className="grid grid-cols-6 gap-2">
-                              {Object.entries(icons).map(([key, Icon]) => (
-                                <FormItem key={key} className="flex items-center justify-center">
-                                  <FormControl>
-                                      <RadioGroupItem value={key} id={`icon-${key}`} className="sr-only" />
-                                  </FormControl>
-                                  <FormLabel htmlFor={`icon-${key}`} className="cursor-pointer">
-                                      <div className={cn(
-                                        "p-3 rounded-lg border-2",
-                                        field.value === key ? "border-primary bg-accent" : "border-transparent"
-                                      )}>
-                                      <Icon className="w-6 h-6" />
-                                      </div>
-                                  </FormLabel>
-                                </FormItem>
-                              ))}
-                            </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
+                  <Input
+                    placeholder="e.g. Netflix"
+                    {...field}
+                    className="h-9 sm:h-10 text-sm"
+                  />
+                </FormControl>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAiFill}
+                  disabled={isAiLoading}
+                  className="h-9 sm:h-10 w-9 sm:w-10 p-0"
+                >
+                  {isAiLoading ? (
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                  <span className="sr-only">AI Fill</span>
+                </Button>
+              </div>
+              <FormMessage className="text-xs" />
             </FormItem>
           )}
         />
 
+        {/* Icon Selection - Compact for mobile */}
+        <FormField
+          control={form.control}
+          name="icon"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm">Icon</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="w-full"
+                >
+                  <Accordion type="single" collapsible className="border-none">
+                    {Object.entries(ICON_CATEGORIES).map(
+                      ([category, icons]) => (
+                        <AccordionItem
+                          value={category}
+                          key={category}
+                          className="border border-border rounded-md mb-2 last:mb-0"
+                        >
+                          <AccordionTrigger className="px-3 py-2 text-sm hover:no-underline">
+                            {category}
+                          </AccordionTrigger>
+                          <AccordionContent className="px-3 pb-3">
+                            <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 sm:gap-2">
+                              {Object.entries(icons).map(([key, Icon]) => (
+                                <FormItem
+                                  key={key}
+                                  className="flex items-center justify-center"
+                                >
+                                  <FormControl>
+                                    <RadioGroupItem
+                                      value={key}
+                                      id={`icon-${key}`}
+                                      className="sr-only"
+                                    />
+                                  </FormControl>
+                                  <FormLabel
+                                    htmlFor={`icon-${key}`}
+                                    className="cursor-pointer"
+                                  >
+                                    <div
+                                      className={cn(
+                                        "p-2 sm:p-3 rounded-md border-2 transition-colors",
+                                        field.value === key
+                                          ? "border-primary bg-accent"
+                                          : "border-transparent hover:bg-muted"
+                                      )}
+                                    >
+                                      <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
+                                    </div>
+                                  </FormLabel>
+                                </FormItem>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      )
+                    )}
+                  </Accordion>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage className="text-xs" />
+            </FormItem>
+          )}
+        />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Provider and Category */}
+        <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
           <FormField
             control={form.control}
             name="provider"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Provider</FormLabel>
+                <FormLabel className="text-sm">Provider</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Netflix, Inc." {...field} />
+                  <Input
+                    placeholder="e.g. Netflix, Inc."
+                    {...field}
+                    className="h-9 sm:h-10 text-sm"
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs" />
               </FormItem>
             )}
           />
@@ -251,105 +310,118 @@ function SubscriptionForm({
             name="category"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Category</FormLabel>
+                <FormLabel className="text-sm">Category</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g. Entertainment" {...field} />
+                  <Input
+                    placeholder="e.g. Entertainment"
+                    {...field}
+                    className="h-9 sm:h-10 text-sm"
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs" />
               </FormItem>
             )}
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Amount, Currency, and Billing Cycle */}
+        <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-2">
           <FormField
             control={form.control}
             name="amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Amount</FormLabel>
+                <FormLabel className="text-sm">Amount</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" {...field} />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...field}
+                    className="h-9 sm:h-10 text-sm"
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs" />
               </FormItem>
             )}
           />
-          <div className="flex gap-2">
-            <FormField
-              control={form.control}
-              name="currency"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Currency</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="billingCycle"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Cycle</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select cycle" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {BILLING_CYCLES.map((c) => (
-                        <SelectItem key={c} value={c} className="capitalize">
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Currency</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger className="h-9 sm:h-10 text-sm">
+                      <SelectValue placeholder="Currency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c} className="text-sm">
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage className="text-xs" />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="billingCycle"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm">Cycle</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger className="h-9 sm:h-10 text-sm">
+                      <SelectValue placeholder="Cycle" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {BILLING_CYCLES.map((c) => (
+                      <SelectItem
+                        key={c}
+                        value={c}
+                        className="capitalize text-sm"
+                      >
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage className="text-xs" />
+              </FormItem>
+            )}
+          />
         </div>
 
+        {/* Start Date */}
         <FormField
           control={form.control}
           name="startDate"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Start Date</FormLabel>
+            <FormItem>
+              <FormLabel className="text-sm">Start Date</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={"outline"}
+                      variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal h-9 sm:h-10 text-sm",
                         !field.value && "text-muted-foreground"
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                       {field.value ? (
                         format(field.value, "PPP")
                       ) : (
@@ -370,32 +442,38 @@ function SubscriptionForm({
                   />
                 </PopoverContent>
               </Popover>
-              <FormMessage />
+              <FormMessage className="text-xs" />
             </FormItem>
           )}
         />
+
+        {/* Notes */}
         <FormField
           control={form.control}
           name="notes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Notes</FormLabel>
+              <FormLabel className="text-sm">Notes</FormLabel>
               <FormControl>
-                <Textarea placeholder="Any notes about this subscription..." {...field} />
+                <Textarea
+                  placeholder="Any notes about this subscription..."
+                  {...field}
+                  className="min-h-[60px] sm:min-h-[80px] text-sm resize-none"
+                />
               </FormControl>
-              <FormMessage />
+              <FormMessage className="text-xs" />
             </FormItem>
           )}
         />
-        <div className="flex items-center space-x-4">
+
+        {/* Status Switches */}
+        <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:space-x-4">
           <FormField
             control={form.control}
             name="activeStatus"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm w-full">
-                <div className="space-y-0.5">
-                  <FormLabel>Active</FormLabel>
-                </div>
+                <FormLabel className="text-sm font-normal">Active</FormLabel>
                 <FormControl>
                   <Switch
                     checked={field.value}
@@ -410,9 +488,9 @@ function SubscriptionForm({
             name="autoRenew"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm w-full">
-                <div className="space-y-0.5">
-                  <FormLabel>Auto-renews</FormLabel>
-                </div>
+                <FormLabel className="text-sm font-normal">
+                  Auto-renews
+                </FormLabel>
                 <FormControl>
                   <Switch
                     checked={field.value}
@@ -423,7 +501,9 @@ function SubscriptionForm({
             )}
           />
         </div>
-        <Button type="submit" className="w-full">
+
+        {/* Submit Button */}
+        <Button type="submit" className="w-full h-10 text-sm font-medium">
           {subscription ? "Save Changes" : "Add Subscription"}
         </Button>
       </form>
@@ -437,14 +517,17 @@ export function AddSubscriptionDialog({
 }: SubscriptionDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md md:max-w-xl max-h-[90dvh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Add Subscription</DialogTitle>
-          <DialogDescription>
-            Enter the details of your new subscription below. Use the magic wand to autofill with AI.
+      <DialogContent className="w-[95vw] max-w-[400px] sm:max-w-md md:max-w-xl max-h-[95dvh] overflow-y-auto p-0">
+        <DialogHeader className="p-4 sm:p-6 pb-0">
+          <DialogTitle className="text-lg sm:text-xl">
+            Add Subscription
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Enter the details of your subscription below. Use the magic wand to
+            autofill with AI.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-6 pt-0">
+        <div className="p-4 sm:p-6 pt-0">
           <SubscriptionForm onDone={() => onOpenChange(false)} />
         </div>
       </DialogContent>
@@ -459,21 +542,22 @@ export function EditSubscriptionDialog({
 }: Required<SubscriptionDialogProps>) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md md:max-w-xl max-h-[90dvh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Edit Subscription</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="w-[95vw] max-w-[400px] sm:max-w-md md:max-w-xl max-h-[95dvh] overflow-y-auto p-0">
+        <DialogHeader className="p-4 sm:p-6 pb-0">
+          <DialogTitle className="text-lg sm:text-xl">
+            Edit Subscription
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             Update the details of your subscription.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-6 pt-0">
-            <SubscriptionForm
-              onDone={() => onOpenChange(false)}
-              subscription={subscription}
-            />
+        <div className="p-4 sm:p-6 pt-0">
+          <SubscriptionForm
+            onDone={() => onOpenChange(false)}
+            subscription={subscription}
+          />
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-
