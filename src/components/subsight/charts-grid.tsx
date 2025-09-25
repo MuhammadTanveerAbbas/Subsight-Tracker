@@ -50,8 +50,9 @@ interface TrendData {
 }
 
 // Pure functions for data processing
-const filterActiveSubscriptions = (subscriptions: Subscription[]): Subscription[] =>
-  subscriptions.filter((s) => s.activeStatus);
+const filterActiveSubscriptions = (
+  subscriptions: Subscription[]
+): Subscription[] => subscriptions.filter((s) => s.activeStatus);
 
 const calculateAnnualCost = (subscription: Subscription): number => {
   if (subscription.billingCycle === "monthly") return subscription.amount * 12;
@@ -89,7 +90,10 @@ const processTimelineData = (subscriptions: Subscription[]): TimelineData[] => {
   subscriptions.forEach((subscription) => {
     if (subscription.billingCycle === "monthly") {
       for (let i = 0; i < 12; i++) {
-        const monthKey = format(new Date(new Date().getFullYear(), i, 1), "MMM");
+        const monthKey = format(
+          new Date(new Date().getFullYear(), i, 1),
+          "MMM"
+        );
         monthlyTotals[monthKey] =
           (monthlyTotals[monthKey] || 0) + subscription.amount;
       }
@@ -171,9 +175,10 @@ const getBarChartConfig = (isMobile: boolean) => ({
   containerClass: isMobile
     ? "h-[240px] w-full" // taller for mobile
     : "h-[220px] w-full sm:h-[250px]",
-  fontSize: isMobile ? "0.75rem" : "0.8rem",
+  fontSize: isMobile ? "0.65rem" : "0.8rem", // Smaller font on mobile
   labelFontSize: isMobile ? 10 : 11,
-  xAxisInterval: isMobile ? 0 : 0, // show all months
+  xAxisInterval: isMobile ? 1 : 0, // Show every other month on mobile, all on desktop
+  tickMargin: isMobile ? 4 : 8, // Reduce margin on mobile
 });
 
 const getTrendChartConfig = (isMobile: boolean) => ({
@@ -300,10 +305,13 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                   <XAxis
                     dataKey="month"
                     tickLine={false}
-                    tickMargin={8}
+                    tickMargin={barChartConfig.tickMargin}
                     axisLine={false}
                     interval={barChartConfig.xAxisInterval}
                     style={{ fontSize: barChartConfig.fontSize }}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 60 : 30}
                   />
                   <YAxis
                     tickFormatter={(value) =>
