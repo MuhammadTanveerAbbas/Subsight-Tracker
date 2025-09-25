@@ -353,7 +353,7 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
         <Card>
           <CardHeader className={isMobile ? "pb-2" : ""}>
             <CardTitle className={isMobile ? "text-base" : ""}>
-              Year-over-Year Spending
+              Year over Year Spending
             </CardTitle>
             <CardDescription className={isMobile ? "text-xs" : ""}>
               Annual subscription costs comparison
