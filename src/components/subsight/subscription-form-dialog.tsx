@@ -117,6 +117,7 @@ function SubscriptionForm({
       ...values,
       icon: values.icon || "default",
       startDate: values.startDate.toISOString(),
+      notes: values.notes || "",
     };
     if (subscription) {
       updateSubscription(subscription.id, data);

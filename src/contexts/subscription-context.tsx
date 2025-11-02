@@ -65,7 +65,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const addSubscription = useCallback(
     (subscription: Omit<Subscription, "id">) => {
       const newSubscription = { ...subscription, id: crypto.randomUUID() };
-      setSubscriptions((prev) => [...prev, newSubscription]);
+      setSubscriptions((prev: Subscription[]) => [...prev, newSubscription]);
       
       if (typeof window !== 'undefined' && (window as any).analytics) {
         (window as any).analytics.track('subscription_added', {
@@ -80,8 +80,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const updateSubscription = useCallback(
     (id: string, updates: Partial<Subscription>) => {
-      setSubscriptions((prev) =>
-        prev.map((sub) => (sub.id === id ? { ...sub, ...updates } : sub))
+      setSubscriptions((prev: Subscription[]) =>
+        prev.map((sub: Subscription) => (sub.id === id ? { ...sub, ...updates } : sub))
       );
       
       if (typeof window !== 'undefined' && (window as any).analytics) {
@@ -92,7 +92,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   );
 
   const deleteSubscription = useCallback((id: string) => {
-    setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
+    setSubscriptions((prev: Subscription[]) => prev.filter((sub: Subscription) => sub.id !== id));
     
     if (typeof window !== 'undefined' && (window as any).analytics) {
       (window as any).analytics.track('subscription_deleted', { id });
