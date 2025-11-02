@@ -1,6 +1,6 @@
 <div align="center">
 
-# Subsight 🎯 Subscription Tracker
+# Subsight 🎯 Subscription Tracker 🧭
 
 </div>
 
