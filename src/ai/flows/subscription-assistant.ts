@@ -5,15 +5,16 @@
  *
  * The flow takes a subscription name as input and returns a SubscriptionDetailsOutput object with
  * details such as provider, category, start date, billing cycle, amount, currency, annual price, notes,
- * active status, and auto-renew flag.
+ * active status, and auto renew flag.
  *
  * @interface SubscriptionDetailsInput - Input schema for the subscription assistant flow.
  * @interface SubscriptionDetailsOutput - Output schema for the subscription assistant flow.
  * @function getSubscriptionDetails - The exported function that triggers the subscription assistant flow.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { rateLimit } from '@/lib/rate-limit';
 
 const SubscriptionDetailsInputSchema = z.object({
   subscriptionName: z
@@ -32,21 +33,24 @@ const SubscriptionDetailsOutputSchema = z.object({
   annualPrice: z.number().describe('The calculated annual price of the subscription.'),
   notes: z.string().describe('Any notes or comments about the subscription.'),
   activeStatus: z.boolean().describe('Whether the subscription is currently active.'),
-  autoRenew: z.boolean().describe('Whether the subscription is set to auto-renew.'),
+  autoRenew: z.boolean().describe('Whether the subscription is set to auto renew.'),
 });
 export type SubscriptionDetailsOutput = z.infer<typeof SubscriptionDetailsOutputSchema>;
 
 export async function getSubscriptionDetails(
   input: SubscriptionDetailsInput
 ): Promise<SubscriptionDetailsOutput> {
+  if (!rateLimit('subscription-assistant', 10, 60000)) {
+    throw new Error('Rate limit exceeded. Please wait before making more requests.');
+  }
   return subscriptionAssistantFlow(input);
 }
 
 const subscriptionAssistantPrompt = ai.definePrompt({
   name: 'subscriptionAssistantPrompt',
-  input: {schema: SubscriptionDetailsInputSchema},
-  output: {schema: SubscriptionDetailsOutputSchema},
-  prompt: `You are a subscription expert. Given the name of a subscription service, provide details such as the provider, category, start date, billing cycle, amount, currency, annual price, notes, active status, and auto-renew flag. Respond in JSON format.
+  input: { schema: SubscriptionDetailsInputSchema },
+  output: { schema: SubscriptionDetailsOutputSchema },
+  prompt: `You are a subscription expert. Given the name of a subscription service, provide details such as the provider, category, start date, billing cycle, amount, currency, annual price, notes, active status, and auto renew flag. Respond in JSON format.
 
 The 'billingCycle' field MUST be one of the following lowercase values: 'monthly', 'yearly', or 'one-time'.
 
@@ -60,7 +64,7 @@ const subscriptionAssistantFlow = ai.defineFlow(
     outputSchema: SubscriptionDetailsOutputSchema,
   },
   async input => {
-    const {output} = await subscriptionAssistantPrompt(input);
+    const { output } = await subscriptionAssistantPrompt(input);
     if (output) {
       output.billingCycle = output.billingCycle.toLowerCase();
     }

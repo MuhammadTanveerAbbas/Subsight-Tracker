@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
 interface KpiCardProps {
@@ -27,9 +26,9 @@ export function KpiCard({
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold" suppressHydrationWarning>{value}</div>
         {deltaText && (
-            <div className="text-xs text-muted-foreground flex items-center">
+            <div className="text-xs text-muted-foreground flex items-center" suppressHydrationWarning>
                  {hasDelta && deltaType === "increase" && (
                     <ArrowUp className="h-4 w-4 text-destructive mr-1" />
                 )}

@@ -489,7 +489,7 @@ function SubscriptionForm({
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm w-full">
                 <FormLabel className="text-sm font-normal">
-                  Auto-renews
+                  Auto renews
                 </FormLabel>
                 <FormControl>
                   <Switch

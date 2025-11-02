@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useMemo } from "react";
 import type { Subscription } from "@/lib/types";
 import { KpiCard } from "@/components/subsight/kpi-card";
 
@@ -34,8 +35,8 @@ const calculateTotals = (subs: Subscription[]) => {
 };
 
 export function KpiGrid({ subscriptions, simulatedSubscriptions }: KpiGridProps) {
-  const originalTotals = calculateTotals(subscriptions);
-  const simulatedTotals = calculateTotals(simulatedSubscriptions);
+  const originalTotals = useMemo(() => calculateTotals(subscriptions), [subscriptions]);
+  const simulatedTotals = useMemo(() => calculateTotals(simulatedSubscriptions), [simulatedSubscriptions]);
 
   const deltaMonthly = simulatedTotals.monthly - originalTotals.monthly;
   const deltaYearly = simulatedTotals.yearly - originalTotals.yearly;

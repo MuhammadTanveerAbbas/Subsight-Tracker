@@ -1,0 +1,16 @@
+{
+  "name": "Subsight - Subscription Tracker",
+  "short_name": "Subsight",
+  "description": "Free privacy-first subscription tracker with AI insights",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

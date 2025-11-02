@@ -3,12 +3,45 @@ import { Sora } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { LoadingProvider } from "@/contexts/loading-context";
 import { LoadingScreen } from "@/components/subsight/loading-screen";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Subsight",
-  description: "Track and manage your subscriptions effortlessly.",
+  metadataBase: new URL('https://subsight-tracker.vercel.app'),
+  title: {
+    default: "Subsight - Free Privacy-First Subscription Tracker",
+    template: "%s | Subsight"
+  },
+  description: "Track and manage your subscriptions effortlessly with AI-powered insights. 100% free, private, and secure. No signup required.",
+  keywords: ["subscription tracker", "manage subscriptions", "recurring payments", "budgeting tool", "AI insights", "privacy-first", "free"],
+  authors: [{ name: "Muhammad Tanveer Abbas" }],
+  creator: "Muhammad Tanveer Abbas",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://subsight-tracker.vercel.app",
+    title: "Subsight - Free Privacy-First Subscription Tracker",
+    description: "Track subscriptions with AI-powered insights. 100% free and private.",
+    siteName: "Subsight",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Subsight - Free Privacy-First Subscription Tracker",
+    description: "Track subscriptions with AI-powered insights. 100% free and private.",
+    creator: "@m_tanveerabbas",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: "/favicon.png",
   },
@@ -27,11 +60,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("dark", sora.variable)}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#8b5cf6" />
+      </head>
       <body className="font-body antialiased">
-        <LoadingProvider>
-          {children}
-          <LoadingScreen />
-        </LoadingProvider>
+        <ErrorBoundary>
+          <LoadingProvider>
+            {children}
+            <LoadingScreen />
+          </LoadingProvider>
+        </ErrorBoundary>
         <Toaster />
       </body>
     </html>

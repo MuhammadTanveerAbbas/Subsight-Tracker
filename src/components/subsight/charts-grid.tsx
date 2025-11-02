@@ -243,46 +243,59 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                 isMobile ? "pt-1" : ""
               }`}
             >
-              <ChartContainer
-                config={categoryChartConfig}
-                className={pieChartDimensions.containerClass}
-              >
-                <PieChart>
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <ChartTooltipContent
-                        hideLabel
-                        formatter={(value, name) => [
-                          `${formatCurrency(value as number, currency)} (${(
-                            ((value as number) / totalAnnualCost) *
-                            100
-                          ).toFixed(1)}%)`,
-                          name,
-                        ]}
-                      />
-                    }
-                  />
-                  <Pie
-                    data={categoryData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={pieChartDimensions.innerRadius}
-                    strokeWidth={5}
-                    labelLine={false}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={
-                          categoryChartConfig[entry.name]?.color ||
-                          "hsl(var(--muted))"
-                        }
-                      />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ChartContainer>
+              {categoryData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="rounded-full bg-muted p-3 mb-3">
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-muted-foreground">No data yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Add subscriptions to see breakdown</p>
+                </div>
+              ) : (
+                <ChartContainer
+                  config={categoryChartConfig}
+                  className={pieChartDimensions.containerClass}
+                >
+                  <PieChart>
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <ChartTooltipContent
+                          hideLabel
+                          formatter={(value, name) => [
+                            `${formatCurrency(value as number, currency)} (${(
+                              ((value as number) / totalAnnualCost) *
+                              100
+                            ).toFixed(1)}%)`,
+                            name,
+                          ]}
+                        />
+                      }
+                    />
+                    <Pie
+                      data={categoryData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={pieChartDimensions.innerRadius}
+                      strokeWidth={5}
+                      labelLine={false}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            categoryChartConfig[entry.name]?.color ||
+                            "hsl(var(--muted))"
+                          }
+                        />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -296,11 +309,22 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className={isMobile ? "pt-1" : ""}>
-              <ChartContainer
-                config={{ total: { label: "Total" } }}
-                className={barChartConfig.containerClass}
-              >
-                <BarChart data={timelineData} accessibilityLayer>
+              {timelineData.every(d => d.total === 0) ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="rounded-full bg-muted p-3 mb-3">
+                    <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-muted-foreground">No data yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">Add subscriptions to see timeline</p>
+                </div>
+              ) : (
+                <ChartContainer
+                  config={{ total: { label: "Total" } }}
+                  className={barChartConfig.containerClass}
+                >
+                  <BarChart data={timelineData} accessibilityLayer>
                   <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="month"
@@ -344,6 +368,7 @@ export function ChartsGrid({ subscriptions }: ChartsGridProps) {
                   </Bar>
                 </BarChart>
               </ChartContainer>
+              )}
             </CardContent>
           </Card>
         </div>

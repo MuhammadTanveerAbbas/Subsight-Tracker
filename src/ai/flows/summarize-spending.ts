@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {rateLimit} from '@/lib/rate-limit';
 
 const SummarizeSpendingInputSchema = z.object({
   subscriptionData: z
@@ -30,6 +31,9 @@ const SummarizeSpendingOutputSchema = z.object({
 export type SummarizeSpendingOutput = z.infer<typeof SummarizeSpendingOutputSchema>;
 
 export async function summarizeSpending(input: SummarizeSpendingInput): Promise<SummarizeSpendingOutput> {
+  if (!rateLimit('summarize-spending', 5, 60000)) {
+    throw new Error('Rate limit exceeded. Please wait before making more requests.');
+  }
   return summarizeSpendingFlow(input);
 }
 

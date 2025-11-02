@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import dynamic from 'next/dynamic';
 import { useSubscriptions } from "@/contexts/subscription-context";
 import { AppHeader } from "@/components/subsight/header";
@@ -13,33 +13,28 @@ import { useLoading } from "@/contexts/loading-context";
 const ChartsGrid = dynamic(() => import('@/components/subsight/charts-grid').then(mod => mod.ChartsGrid), {
   ssr: false,
   loading: () => <div className="grid gap-4 md:grid-cols-2">
-    <Skeleton className="h-[300px] sm:h-[360px]" />
-    <Skeleton className="h-[300px] sm:h-[360px]" />
+    <Skeleton className="h-[300px] sm:h-[360px] rounded-lg" />
+    <Skeleton className="h-[300px] sm:h-[360px] rounded-lg" />
   </div>
 });
 
 export function Dashboard() {
-  const { subscriptions, loading: subsLoading } = useSubscriptions();
+  const { subscriptions } = useSubscriptions();
   const { setIsLoading } = useLoading();
   const [simulation, setSimulation] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // Only show the global loading screen on initial app load, not when subscriptions change.
-    // subsLoading is true on first render, and then false.
-    if (!subsLoading) {
-      setIsLoading(false);
-    }
-  }, [subsLoading, setIsLoading]);
+    setIsLoading(false);
+  }, [setIsLoading]);
 
-  const simulatedSubscriptions = subscriptions.map((sub) => ({
-    ...sub,
-    activeStatus:
-      simulation[sub.id] === undefined ? sub.activeStatus : simulation[sub.id],
-  }));
-
-  if (subsLoading) {
-    return null; // The global loading screen is shown by the layout
-  }
+  const simulatedSubscriptions = useMemo(() => 
+    subscriptions.map((sub) => ({
+      ...sub,
+      activeStatus:
+        simulation[sub.id] === undefined ? sub.activeStatus : simulation[sub.id],
+    })),
+    [subscriptions, simulation]
+  );
 
   return (
     <div className="flex min-h-screen w-full flex-col">

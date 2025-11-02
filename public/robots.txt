@@ -1,0 +1,7 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+Disallow: /dashboard
+
+# Sitemap
+Sitemap: https://subsight-tracker.vercel.app/sitemap.xml

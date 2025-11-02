@@ -4,18 +4,16 @@ import React, {
   createContext,
   useContext,
   useState,
-  useEffect,
   ReactNode,
   useCallback,
   useMemo,
 } from "react";
 import type { Subscription } from "@/lib/types";
+import { logError } from "@/lib/error-logger";
 
 const IS_SERVER = typeof window === "undefined";
 
-// Custom hook for robust localStorage synchronization
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void, boolean] {
-  const [loading, setLoading] = useState(true);
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
   const [storedValue, setStoredValue] = useState(() => {
     if (IS_SERVER) {
       return initialValue;
@@ -24,32 +22,29 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key “${key}”:`, error);
+      logError(error as Error, { key, operation: 'localStorage.getItem' });
       return initialValue;
-    } finally {
-      // setLoading(false) should be in useEffect to avoid server/client mismatch
     }
   });
 
-  useEffect(() => {
-    setLoading(false);
-  }, []);
-
   const setValue = (value: T | ((val: T) => T)) => {
     if (IS_SERVER) {
-      console.warn(`Tried to set localStorage key “${key}” on the server.`);
+      console.warn(`Tried to set localStorage key "${key}" on the server.`);
       return;
     }
     try {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error(`Error setting localStorage key “${key}”:`, error);
+    } catch (error: any) {
+      if (error?.name === 'QuotaExceededError') {
+        alert('Storage quota exceeded. Please export your data and clear some subscriptions.');
+      }
+      logError(error as Error, { key, operation: 'localStorage.setItem' });
     }
   };
 
-  return [storedValue, setValue, loading];
+  return [storedValue, setValue];
 }
 
 interface SubscriptionContextType {
@@ -58,7 +53,6 @@ interface SubscriptionContextType {
   updateSubscription: (id: string, updates: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
   importSubscriptions: (newSubscriptions: Subscription[]) => void;
-  loading: boolean;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
@@ -66,28 +60,44 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(
 );
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
-  const [subscriptions, setSubscriptions, loading] = useLocalStorage<Subscription[]>("subscriptions", []);
+  const [subscriptions, setSubscriptions] = useLocalStorage<Subscription[]>("subscriptions", []);
 
   const addSubscription = useCallback(
     (subscription: Omit<Subscription, "id">) => {
       const newSubscription = { ...subscription, id: crypto.randomUUID() };
-      setSubscriptions([...subscriptions, newSubscription]);
+      setSubscriptions((prev) => [...prev, newSubscription]);
+      
+      if (typeof window !== 'undefined' && (window as any).analytics) {
+        (window as any).analytics.track('subscription_added', {
+          category: subscription.category,
+          billingCycle: subscription.billingCycle,
+          currency: subscription.currency,
+        });
+      }
     },
-    [subscriptions, setSubscriptions]
+    [setSubscriptions]
   );
 
   const updateSubscription = useCallback(
     (id: string, updates: Partial<Subscription>) => {
-      setSubscriptions(
-        subscriptions.map((sub) => (sub.id === id ? { ...sub, ...updates } : sub))
+      setSubscriptions((prev) =>
+        prev.map((sub) => (sub.id === id ? { ...sub, ...updates } : sub))
       );
+      
+      if (typeof window !== 'undefined' && (window as any).analytics) {
+        (window as any).analytics.track('subscription_updated', { id });
+      }
     },
-    [subscriptions, setSubscriptions]
+    [setSubscriptions]
   );
 
   const deleteSubscription = useCallback((id: string) => {
-    setSubscriptions(subscriptions.filter((sub) => sub.id !== id));
-  }, [subscriptions, setSubscriptions]);
+    setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
+    
+    if (typeof window !== 'undefined' && (window as any).analytics) {
+      (window as any).analytics.track('subscription_deleted', { id });
+    }
+  }, [setSubscriptions]);
 
   const importSubscriptions = useCallback((newSubscriptions: Subscription[]) => {
     if (Array.isArray(newSubscriptions)) {
@@ -105,7 +115,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       deleteSubscription,
       importSubscriptions,
-      loading,
     }),
     [
       subscriptions,
@@ -113,7 +122,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       deleteSubscription,
       importSubscriptions,
-      loading,
     ]
   );
 
