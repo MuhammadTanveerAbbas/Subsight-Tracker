@@ -13,8 +13,8 @@ import { logError } from "@/lib/error-logger";
 
 const IS_SERVER = typeof window === "undefined";
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
-  const [storedValue, setStoredValue] = useState(() => {
+function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [storedValue, setStoredValue] = useState<T>(() => {
     if (IS_SERVER) {
       return initialValue;
     }
@@ -27,7 +27,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
     }
   });
 
-  const setValue = (value: T | ((val: T) => T)) => {
+  const setValue: React.Dispatch<React.SetStateAction<T>> = useCallback((value) => {
     if (IS_SERVER) {
       console.warn(`Tried to set localStorage key "${key}" on the server.`);
       return;
@@ -42,7 +42,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
       }
       logError(error as Error, { key, operation: 'localStorage.setItem' });
     }
-  };
+  }, [key, storedValue]);
 
   return [storedValue, setValue];
 }
