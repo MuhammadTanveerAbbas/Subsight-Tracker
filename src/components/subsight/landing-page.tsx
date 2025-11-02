@@ -89,7 +89,7 @@ export function LandingPage() {
         {/* Hero Section */}
         <section
           id="hero"
-          className="relative w-full pt-10 md:pt-18 lg:pt-14 pb-0 md:pb-18 lg:pb-14 overflow-hidden"
+          className="relative w-full pt-16 md:pt-18 lg:pt-14 pb-16 md:pb-18 lg:pb-14 overflow-hidden"
         >
           <div className="container px-4 md:px-6 relative z-10">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
